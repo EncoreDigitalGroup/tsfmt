@@ -5,6 +5,7 @@
 import {BaseFormattingRule} from "../../BaseFormattingRule";
 import {FormatContext} from "../../FormatContext";
 import {findRangeContaining, ProtectedRange} from "../../LineProtection";
+import {SyntaxKind} from "ts-morph";
 
 /**
  * Reindents code to the configured width by deriving each line's indent from actual bracket nesting
@@ -208,6 +209,10 @@ export class StructuralIndentationRule extends BaseFormattingRule {
                 // A later link of a chain already seen at this bracket depth aligns to the first link,
                 // regardless of how deep an earlier link's arguments were indented in between.
                 emitted[lineIndex] = chainLevel;
+            } else if (isContinuation && (trimmed.startsWith("&&") || trimmed.startsWith("||")) && top?.char === "(") {
+                // Boolean operands within one parenthesized condition align to the condition's body
+                // level, rather than treating the second and later operands as nested continuations.
+                emitted[lineIndex] = top.level;
             } else if (isContinuation && top !== null && top.openLine >= prevCodeLine) {
                 // A continuation that is the first line inside a bracket opened on the line it continues
                 // (e.g. `a || (b` then `&& c)`) takes the bracket's indent — the bracket already stepped
@@ -374,6 +379,51 @@ export class StructuralIndentationRule extends BaseFormattingRule {
 
         const lines = source.split("\n");
         const emitted = this.computeEmittedLevels(source, lines, protectedRanges, scanRanges, jsxMarkers);
+        const lineAt = (position: number): number => {
+            let line = 0;
+
+            for (let i = 0; i < position; i++) {
+                if (source[i] === "\n") {
+                    line++;
+                }
+            }
+
+            return line;
+        };
+        const startsLine = (position: number): boolean => {
+            const lineStart = source.lastIndexOf("\n", position - 1) + 1;
+            return source.slice(lineStart, position).trim() === "";
+        };
+        const switchStatementLevels = new Map<number, number>();
+        const ternaryBranchLevels = new Map<number, number>();
+
+        for (const clause of [
+            ...context.sourceFile.getDescendantsOfKind(SyntaxKind.CaseClause),
+            ...context.sourceFile.getDescendantsOfKind(SyntaxKind.DefaultClause),
+        ]) {
+            const clauseLine = lineAt(clause.getStart());
+
+            for (const statement of clause.getStatements()) {
+                const statementLine = lineAt(statement.getStart());
+                if (statementLine !== clauseLine) {
+                    switchStatementLevels.set(statementLine, emitted[clauseLine] + 1);
+                }
+            }
+        }
+
+        for (const conditional of context.sourceFile.getDescendantsOfKind(SyntaxKind.ConditionalExpression)) {
+            const level = emitted[lineAt(conditional.getCondition().getStart())] + 1;
+            const questionPosition = conditional.getQuestionToken().getStart();
+            const colonPosition = conditional.getColonToken().getStart();
+
+            if (startsLine(questionPosition)) {
+                ternaryBranchLevels.set(lineAt(questionPosition), level);
+            }
+
+            if (startsLine(colonPosition)) {
+                ternaryBranchLevels.set(lineAt(colonPosition), level);
+            }
+        }
         const result: string[] = [];
 
         // Track whether we are inside a multi-line block comment (`/* ... */`) and the indentation
@@ -402,6 +452,12 @@ export class StructuralIndentationRule extends BaseFormattingRule {
                 continue;
             }
 
+            // Comment alignment is authored trivia, not a bracket-nesting concern.
+            if (content.startsWith("//")) {
+                result.push(line);
+                continue;
+            }
+
             // Continuation of a multi-line block comment: align each `*`-prefixed line one space in from
             // the opening `/*`. Non-`*` body lines (e.g. code samples) are left untouched.
             if (inBlockComment) {
@@ -418,7 +474,10 @@ export class StructuralIndentationRule extends BaseFormattingRule {
                 continue;
             }
 
-            const newIndent = indentUnit.repeat(emitted[lineIndex]);
+            const level = (this.startsTernaryBranch(content) ? ternaryBranchLevels.get(lineIndex) : undefined)
+                ?? switchStatementLevels.get(lineIndex)
+                ?? emitted[lineIndex];
+            const newIndent = indentUnit.repeat(level);
 
             // A line that opens a block comment without closing it on the same line starts a continuation
             // run; record its normalized indent so following `*` lines align to it.

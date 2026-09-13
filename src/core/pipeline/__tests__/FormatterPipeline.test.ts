@@ -135,6 +135,93 @@ describe("FormatterPipeline", () => {
     });
 
     describe("formatFile", () => {
+        async function formatCodeStyleSource(source: string): Promise<string> {
+            await fs.writeFile(testFilePath, source, "utf-8");
+
+            const config: CoreConfig = {
+                ...ConfigDefaults.getDefaultConfig(),
+                indexGeneration: {enabled: false},
+                codeStyle: ConfigDefaults.getDefaultCodeStyleConfig(),
+                imports: {enabled: false},
+                sorting: {enabled: false},
+                spacing: {enabled: false},
+            };
+            const container = new Container();
+            ServiceRegistration.registerServices(container, config);
+
+            const pipeline = new FormatterPipeline(config, container);
+            const context = await pipeline.formatFile(testFilePath, false);
+            expect(context.changed).toBe(false);
+
+            return context.currentSource;
+        }
+
+        it("preserves a switch case body indentation", async () => {
+            const source = [
+                "function parseOption(arg: string): void {",
+                "    switch (arg) {",
+                "        case \"--enable\":",
+                "            enable();",
+                "            break;",
+                "        default:",
+                "            showUsage();",
+                "    }",
+                "}"
+            ].join("\n");
+
+            expect(await formatCodeStyleSource(source)).toBe(source);
+        });
+
+        it("preserves a nested ternary branch indentation", async () => {
+            const source = [
+                "const synchronizationMessage = name === \"opencode\"",
+                "    ? \"synchronizing configuration and skills…\"",
+                "    : name === \"desktop_background\"",
+                "        ? \"synchronizing desktop background…\"",
+                "        : null;"
+            ].join("\n");
+
+            expect(await formatCodeStyleSource(source)).toBe(source);
+        });
+
+        it("aligns an outer ternary's question and colon around an inline child ternary", async () => {
+            const source = [
+                "const displayedCharge = uiPct === \"\"",
+                "    ? `${pctColor(pct)}[${chargeBar(pct)}] ${pct}% gauge${cReset}`",
+                "    : `${pctColor(pct)}[${chargeBar(pct)}] ${pct}% UI${cReset} (${rawPct}% gauge${calibrationDelta === \"\" ? \"\" : `, ${calibrationDelta}% calibrated`})`;"
+            ].join("\n");
+
+            expect(await formatCodeStyleSource(source)).toBe(source);
+        });
+
+        it("preserves leading boolean operators in a multiline condition", async () => {
+            const source = [
+                "if (",
+                "    modeArg !== \"--tools-only\"",
+                "    && modeArg !== \"--scripts-only\"",
+                "    && modeArg !== \"--configurators-only\"",
+                "    && modeArg !== \"--migrate\"",
+                ") {",
+                "    showUsage();",
+                "}"
+            ].join("\n");
+
+            expect(await formatCodeStyleSource(source)).toBe(source);
+        });
+
+        it("preserves column-zero section comments in an object literal", async () => {
+            const source = [
+                "const manifest = {",
+                "// -------------------------------------------------------------------------",
+                "// Tools",
+                "// -------------------------------------------------------------------------",
+                "    tools: [],",
+                "};"
+            ].join("\n");
+
+            expect(await formatCodeStyleSource(source)).toBe(source);
+        });
+
         it("should format a file with CodeStyleFormatter", async () => {
             const source = "const foo = 'single quotes';";
             await fs.writeFile(testFilePath, source, "utf-8");
