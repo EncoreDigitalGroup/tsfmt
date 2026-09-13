@@ -174,5 +174,99 @@ export interface Alpha {
             // Re-formatting is a no-op.
             expect(run(result, "file.ts", defaultConfig())).toBe(result);
         });
+
+        it("keeps uppercase constants at the top in their source order while sorting other declarations", () => {
+            const input = `const GREEN = "green";
+const RED = "red";
+const USAGE = "usage";
+
+function zebra() {
+    return USAGE;
+}
+
+function alpha() {
+    return GREEN;
+}
+
+interface Options {
+    color: string;
+}
+`;
+
+            const result = run(input, "file.ts", defaultConfig());
+
+            expect(result.indexOf("const GREEN")).toBeLessThan(result.indexOf("const RED"));
+            expect(result.indexOf("const RED")).toBeLessThan(result.indexOf("const USAGE"));
+            expect(result.indexOf("const USAGE")).toBeLessThan(result.indexOf("interface Options"));
+            expect(result.indexOf("interface Options")).toBeLessThan(result.indexOf("function alpha"));
+            expect(result.indexOf("function alpha")).toBeLessThan(result.indexOf("function zebra"));
+        });
+
+        it("raises uppercase constants lowered by earlier dependency sorting and remains idempotent", () => {
+            const input = `function logInfo() {
+    return GREEN;
+}
+
+const GREEN = "green";
+
+function logWarn() {
+    return YELLOW;
+}
+
+const YELLOW = "yellow";
+`;
+
+            const result = run(input, "file.ts", defaultConfig());
+
+            expect(result.startsWith("const GREEN = \"green\";\nconst YELLOW = \"yellow\";"))
+                .toBe(true);
+            expect(run(result, "file.ts", defaultConfig())).toBe(result);
+        });
+
+        it("keeps a local dependency ahead of an uppercase constant that requires it", () => {
+            const input = `const DISPLAY_NAME = baseName.toUpperCase();
+
+const baseName = "tsfmt";
+
+function showName() {
+    return DISPLAY_NAME;
+}
+`;
+
+            const result = run(input, "file.ts", defaultConfig());
+
+            expect(result.indexOf("const baseName")).toBeLessThan(result.indexOf("const DISPLAY_NAME"));
+            expect(result.indexOf("const DISPLAY_NAME")).toBeLessThan(result.indexOf("function showName"));
+        });
+
+        it("treats only all-uppercase const statements as constants", () => {
+            const input = `const API_URL = "https://example.test";
+
+const api_url = "https://example.test";
+
+const apiUrl = "https://example.test";
+
+const MIXED_URL = "https://example.test", mixedUrl = "https://example.test";
+
+let mutableUrl = "https://example.test";
+
+var legacyUrl = "https://example.test";
+
+function helper() {
+    return "ok";
+}
+`;
+
+            const result = run(input, "file.ts", defaultConfig());
+
+            expect(result.startsWith("const API_URL = \"https://example.test\";"))
+                .toBe(true);
+            expect(result.indexOf("const API_URL")).toBeLessThan(result.indexOf("function helper"));
+            expect(result.indexOf("function helper")).toBeLessThan(result.indexOf("const api_url"));
+            expect(result.indexOf("function helper")).toBeLessThan(result.indexOf("const apiUrl"));
+            expect(result.indexOf("function helper")).toBeLessThan(result.indexOf("const MIXED_URL"));
+            expect(result.indexOf("function helper")).toBeLessThan(result.indexOf("let mutableUrl"));
+            expect(result.indexOf("function helper")).toBeLessThan(result.indexOf("var legacyUrl"));
+        });
     });
 });

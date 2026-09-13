@@ -191,8 +191,8 @@ Every option has a sensible default — you only set what you want to change. De
 - `sorting.classMembers` — sort class members. Order by default: static properties, instance properties, constructor, accessors, static methods, instance methods. Set
   `groupByVisibility` to `true` to group by `public`/`protected`/`private` first.
 - `sorting.reactComponents` — the same, applied to React component classes.
-- `sorting.fileDeclarations` — order top-level declarations: interfaces, type aliases, enums, helper functions, helper variables, exported functions, exported variables,
-  exported classes, default export, everything else.
+- `sorting.fileDeclarations` — keep uppercase `const` declarations at the top of the file in source order, then order other top-level declarations: interfaces, type
+  aliases, enums, helper functions, helper variables, exported functions, exported variables, exported classes, default export, everything else.
 
 **`spacing`** — blank-line rules. **Disabled by default** (`spacing.enabled: false`); opt in to turn it on:
 

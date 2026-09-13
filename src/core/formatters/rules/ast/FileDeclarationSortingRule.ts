@@ -123,6 +123,28 @@ export class FileDeclarationSortingRule extends BaseFormattingRule {
         });
     }
 
+    /** Uppercase const statements represent true constants and belong at the start of the file scope. */
+    private isConstantDeclaration(node: ts.Statement): boolean {
+        return ts.isVariableStatement(node)
+            && (node.declarationList.flags & ts.NodeFlags.Const) !== 0
+            && node.declarationList.declarations.length > 0
+            && node.declarationList.declarations.every(declaration =>
+                ts.isIdentifier(declaration.name) && /^[A-Z][A-Z0-9_]*$/.test(declaration.name.text));
+    }
+
+    /**
+     * Keep constants at the top in their source order. The dependency resolver still runs afterward,
+     * so a local declaration a constant needs remains ahead of that constant when necessary.
+     */
+    private sortWithConstantsFirst(declarations: FileDeclaration[]): FileDeclaration[] {
+        const constants = declarations
+            .filter(declaration => this.isConstantDeclaration(declaration.node))
+            .sort((a, b) => a.originalIndex! - b.originalIndex!);
+        const variablesAndDeclarations = declarations.filter(declaration => !this.isConstantDeclaration(declaration.node));
+
+        return [...constants, ...this.sortFileDeclarations(variablesAndDeclarations)];
+    }
+
     /**
      * Offset in `text` where the first declaration's *own* content begins for header-pinning: the
      * start of the doc comment attached directly above it (no blank line between the comment and the
@@ -215,7 +237,7 @@ export class FileDeclarationSortingRule extends BaseFormattingRule {
             this.analyzeDeclaration(stmt, sourceFile, index, allDeclarationNames)
         );
 
-        let sortedDeclarations = this.sortFileDeclarations(analyzedDeclarations);
+        let sortedDeclarations = this.sortWithConstantsFirst(analyzedDeclarations);
 
         if (config.respectDependencies !== false) {
             sortedDeclarations = DependencyResolver.reorderWithDependencies(sortedDeclarations, d => d.name);
