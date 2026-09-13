@@ -10,6 +10,17 @@ import {BaseFormattingRule} from "../../BaseFormattingRule";
 import {FormatContext} from "../../FormatContext";
 import {StatementSpacingRule} from "../style/StatementSpacingRule";
 
+/** Default order for class members */
+export const DEFAULT_CLASS_ORDER: MemberType[] = [
+    MemberType.StaticProperty,
+    MemberType.InstanceProperty,
+    MemberType.Constructor,
+    MemberType.GetAccessor,
+    MemberType.SetAccessor,
+    MemberType.StaticMethod,
+    MemberType.InstanceMethod,
+];
+
 /** Analyzed class member with metadata */
 export interface ClassMember {
     node: ts.ClassElement;
@@ -25,17 +36,6 @@ export interface ClassMember {
     dependencies?: Set<string>;
     originalIndex?: number;
 }
-
-/** Default order for class members */
-export const DEFAULT_CLASS_ORDER: MemberType[] = [
-    MemberType.StaticProperty,
-    MemberType.InstanceProperty,
-    MemberType.Constructor,
-    MemberType.GetAccessor,
-    MemberType.SetAccessor,
-    MemberType.StaticMethod,
-    MemberType.InstanceMethod,
-];
 
 /** Sorts class members according to configured order */
 export class ClassMemberSortingRule extends BaseFormattingRule {

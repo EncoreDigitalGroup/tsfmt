@@ -229,9 +229,9 @@ async function main(): Promise<void> {
 
         const shouldFormat = Boolean(
             config.codeStyle?.enabled
-                || config.imports?.enabled
-                || config.sorting?.enabled
-                || config.spacing?.enabled
+            || config.imports?.enabled
+            || config.sorting?.enabled
+            || config.spacing?.enabled
         );
 
         const shouldGenerateIndexes = Boolean(config.indexGeneration?.enabled);

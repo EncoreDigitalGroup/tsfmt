@@ -2,10 +2,10 @@
  * Copyright (c) 2026. Encore Digital Group.
  * All Rights Reserved.
  */
+import {SyntaxKind} from "ts-morph";
 import {BaseFormattingRule} from "../../BaseFormattingRule";
 import {FormatContext} from "../../FormatContext";
 import {findRangeContaining, ProtectedRange} from "../../LineProtection";
-import {SyntaxKind} from "ts-morph";
 
 /**
  * Reindents code to the configured width by deriving each line's indent from actual bracket nesting
@@ -390,10 +390,12 @@ export class StructuralIndentationRule extends BaseFormattingRule {
 
             return line;
         };
+
         const startsLine = (position: number): boolean => {
             const lineStart = source.lastIndexOf("\n", position - 1) + 1;
             return source.slice(lineStart, position).trim() === "";
         };
+
         const switchStatementLevels = new Map<number, number>();
         const ternaryBranchLevels = new Map<number, number>();
 
@@ -424,6 +426,7 @@ export class StructuralIndentationRule extends BaseFormattingRule {
                 ternaryBranchLevels.set(lineAt(colonPosition), level);
             }
         }
+
         const result: string[] = [];
 
         // Track whether we are inside a multi-line block comment (`/* ... */`) and the indentation
@@ -477,6 +480,7 @@ export class StructuralIndentationRule extends BaseFormattingRule {
             const level = (this.startsTernaryBranch(content) ? ternaryBranchLevels.get(lineIndex) : undefined)
                 ?? switchStatementLevels.get(lineIndex)
                 ?? emitted[lineIndex];
+
             const newIndent = indentUnit.repeat(level);
 
             // A line that opens a block comment without closing it on the same line starts a continuation

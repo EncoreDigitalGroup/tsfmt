@@ -146,6 +146,7 @@ describe("FormatterPipeline", () => {
                 sorting: {enabled: false},
                 spacing: {enabled: false},
             };
+
             const container = new Container();
             ServiceRegistration.registerServices(container, config);
 

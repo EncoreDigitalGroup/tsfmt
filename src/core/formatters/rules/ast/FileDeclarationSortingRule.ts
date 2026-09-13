@@ -9,18 +9,6 @@ import {BaseFormattingRule} from "../../BaseFormattingRule";
 import {FormatContext} from "../../FormatContext";
 import {StatementSpacingRule} from "../style/StatementSpacingRule";
 
-/** Analyzed file declaration with metadata */
-export interface FileDeclaration {
-    node: ts.Statement;
-    type: DeclarationType;
-    name: string;
-    isExported: boolean;
-    isDefaultExport: boolean;
-    text: string;
-    dependencies?: Set<string>;
-    originalIndex?: number;
-}
-
 /** Default order for file declarations */
 export const DEFAULT_FILE_ORDER: DeclarationType[] = [
     DeclarationType.Interface,
@@ -34,6 +22,18 @@ export const DEFAULT_FILE_ORDER: DeclarationType[] = [
     DeclarationType.DefaultExport,
     DeclarationType.Other,
 ];
+
+/** Analyzed file declaration with metadata */
+export interface FileDeclaration {
+    node: ts.Statement;
+    type: DeclarationType;
+    name: string;
+    isExported: boolean;
+    isDefaultExport: boolean;
+    text: string;
+    dependencies?: Set<string>;
+    originalIndex?: number;
+}
 
 /** Sorts file-level declarations according to configured order */
 export class FileDeclarationSortingRule extends BaseFormattingRule {
@@ -104,6 +104,15 @@ export class FileDeclarationSortingRule extends BaseFormattingRule {
         };
     }
 
+    /** Uppercase const statements represent true constants and belong at the start of the file scope. */
+    private isConstantDeclaration(node: ts.Statement): boolean {
+        return ts.isVariableStatement(node)
+            && (node.declarationList.flags & ts.NodeFlags.Const) !== 0
+            && node.declarationList.declarations.length > 0
+            && node.declarationList.declarations.every(declaration =>
+                ts.isIdentifier(declaration.name) && /^[A-Z][A-Z0-9_]*$/.test(declaration.name.text));
+    }
+
     /** Sort file declarations according to configuration */
     private sortFileDeclarations(declarations: FileDeclaration[]): FileDeclaration[] {
         const config = this.getSortingConfig()?.fileDeclarations;
@@ -123,15 +132,6 @@ export class FileDeclarationSortingRule extends BaseFormattingRule {
         });
     }
 
-    /** Uppercase const statements represent true constants and belong at the start of the file scope. */
-    private isConstantDeclaration(node: ts.Statement): boolean {
-        return ts.isVariableStatement(node)
-            && (node.declarationList.flags & ts.NodeFlags.Const) !== 0
-            && node.declarationList.declarations.length > 0
-            && node.declarationList.declarations.every(declaration =>
-                ts.isIdentifier(declaration.name) && /^[A-Z][A-Z0-9_]*$/.test(declaration.name.text));
-    }
-
     /**
      * Keep constants at the top in their source order. The dependency resolver still runs afterward,
      * so a local declaration a constant needs remains ahead of that constant when necessary.
@@ -140,8 +140,8 @@ export class FileDeclarationSortingRule extends BaseFormattingRule {
         const constants = declarations
             .filter(declaration => this.isConstantDeclaration(declaration.node))
             .sort((a, b) => a.originalIndex! - b.originalIndex!);
-        const variablesAndDeclarations = declarations.filter(declaration => !this.isConstantDeclaration(declaration.node));
 
+        const variablesAndDeclarations = declarations.filter(declaration => !this.isConstantDeclaration(declaration.node));
         return [...constants, ...this.sortFileDeclarations(variablesAndDeclarations)];
     }
 

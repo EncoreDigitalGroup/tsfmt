@@ -4,6 +4,9 @@
  */
 import {type CoreConfig, DEFAULT_PARALLEL_WORKERS} from "./core";
 
+/** Minimum file count before worker startup costs are worthwhile. */
+export const MINIMUM_PARALLEL_FILES = 4;
+
 export interface ParallelFormatResult {
     filePath: string;
     changed: boolean;
@@ -121,6 +124,3 @@ export async function formatFilesInParallel(
         }
     }
 }
-
-/** Minimum file count before worker startup costs are worthwhile. */
-export const MINIMUM_PARALLEL_FILES = 4;

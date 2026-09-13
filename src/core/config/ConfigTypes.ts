@@ -12,6 +12,9 @@
  */
 import type {PresetName} from "./presets";
 
+/** Default maximum number of formatter workers. */
+export const DEFAULT_PARALLEL_WORKERS = 3;
+
 /** Types of class members, used to order class-member sorting. */
 export enum MemberType {
     StaticProperty = "static_property",
@@ -337,9 +340,6 @@ export interface CoreConfig {
      */
     skipReactFiles?: boolean;
 }
-
-/** Default maximum number of formatter workers. */
-export const DEFAULT_PARALLEL_WORKERS = 3;
 
 /** Configuration type definitions and utilities */
 export class ConfigTypes {
